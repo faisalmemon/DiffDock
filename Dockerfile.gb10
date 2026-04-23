@@ -1,0 +1,46 @@
+# Stage 1: Build Environment Setup
+# Use an ARM64-compatible CUDA base image
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
+
+RUN apt-get update -y && apt-get install -y gcc wget curl git tar bzip2 unzip && rm -rf /var/lib/apt/lists/*
+
+# Create a user
+ENV APPUSER="appuser"
+ENV HOME=/home/$APPUSER
+RUN useradd -m -u 1000 $APPUSER
+USER $APPUSER
+WORKDIR $HOME
+
+# Install micromamba for ARM64 (aarch64)
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-aarch64/latest | tar -xj bin/micromamba
+ENV MAMBA_ROOT_PREFIX=$HOME/micromamba
+ENV PATH=$HOME/bin:$HOME/.local/bin:$PATH
+
+# Copy environment and build
+COPY --chown=$APPUSER:$APPUSER ./environment.yml .
+RUN ~/bin/micromamba env create --file environment.yml && ~/bin/micromamba clean -afy --quiet
+
+# Copy application code
+COPY --chown=$APPUSER:$APPUSER . $HOME/DiffDock
+WORKDIR $HOME/DiffDock
+
+# Stage 2: Runtime Environment
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+# Copy necessary environment and code
+COPY --from=builder --chown=1000:1000 /home/appuser/micromamba /home/appuser/micromamba
+COPY --from=builder --chown=1000:1000 /home/appuser/bin /home/appuser/bin
+COPY --from=builder --chown=1000:1000 /home/appuser/DiffDock /home/appuser/DiffDock
+
+# Set up runtime user
+RUN useradd -m -u 1000 appuser
+USER 1000
+WORKDIR /home/appuser/DiffDock
+ENV PATH=/home/appuser/bin:$PATH
+ENV MAMBA_ROOT_PREFIX=/home/appuser/micromamba
+
+# Precompute series
+RUN micromamba run -n diffdock python utils/precompute_series.py
+
+EXPOSE 7860 8501
+CMD ["sh", "-c", "micromamba run -n diffdock python utils/print_device.py"]
