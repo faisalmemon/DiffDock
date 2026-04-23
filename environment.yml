@@ -7,7 +7,6 @@ dependencies:
   - pip
   - pip:
     - torch
-    - torch-geometric
     - e3nn
     - rdkit
     - prody

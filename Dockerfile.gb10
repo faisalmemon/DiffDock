@@ -18,7 +18,14 @@ ENV PATH=$HOME/bin:$HOME/.local/bin:$PATH
 
 # Copy environment and build
 COPY --chown=$APPUSER:$APPUSER ./environment.yml .
-RUN ~/bin/micromamba env create --file environment.yml && ~/bin/micromamba clean -afy --quiet
+RUN ~/bin/micromamba env create --file environment.yml
+RUN ~/bin/micromamba run -n diffdock pip install --no-build-isolation \
+    torch-scatter \
+    torch-sparse \
+    torch-cluster \
+    torch-spline-conv \
+    -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+RUN ~/bin/micromamba clean -afy --quiet
 
 # Copy application code
 COPY --chown=$APPUSER:$APPUSER . $HOME/DiffDock
