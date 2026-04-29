@@ -20,6 +20,7 @@ ENV PATH=$HOME/bin:$HOME/.local/bin:$PATH
 COPY --chown=$APPUSER:$APPUSER ./environment.yml .
 RUN ~/bin/micromamba env create --file environment.yml
 RUN ~/bin/micromamba run -n diffdock pip install --no-build-isolation \
+    torch-geometric \
     torch-scatter \
     torch-sparse \
     torch-cluster \
