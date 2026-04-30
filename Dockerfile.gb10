@@ -6,10 +6,10 @@ ENV APPUSER="appuser"
 RUN useradd -m -u 1000 $APPUSER
 WORKDIR /home/$APPUSER/DiffDock
 
-# --- PRODY FIX ---
-# This undefines the 'I' macro so ProDy can compile its C-extensions on ARM64
-ENV CFLAGS="-UI"
-# -----------------
+# --- BUILD TOOLS & ENVIRONMENT ---
+ENV TORCH_CUDA_ARCH_LIST="9.0"
+ENV FORCE_CUDA="1"
+ENV CFLAGS="-UI -U_Complex_I"
 
 # Install the "Big Four" Geometric libraries from source
 RUN pip install --no-cache-dir \
@@ -20,13 +20,22 @@ RUN pip install --no-cache-dir \
     -f https://data.pyg.org/whl/torch-2.3.0+cu121.html || \
     pip install --no-binary :all: torch-cluster torch-scatter torch-sparse torch-spline-conv
 
-# Set the architecture to Hopper (9.0) for the Spark
-ENV TORCH_CUDA_ARCH_LIST="9.0"
-ENV FORCE_CUDA="1"
+# Pre-install build-time requirements (must be done before ProDy surgery)
+RUN pip install --no-cache-dir cython biopython setuptools numpy
 
-# Pre-install the build-time requirements
-RUN pip install --no-cache-dir cython biopython setuptools
+# --- PRODY SURGERY BLOCK ---
+# We download the source, physically patch the offending file, and install.
+# This bypasses the header conflict by undefining 'I' inside the .c file itself.
+RUN pip download prody --no-binary :all: && \
+    tar -xzf ProDy-*.tar.gz && \
+    rm ProDy-*.tar.gz && \
+    cd ProDy-* && \
+    sed -i '1i #undef I\n#undef _Complex_I' prody/dynamics/rtbtools.c && \
+    pip install . --no-build-isolation && \
+    cd .. && rm -rf ProDy-*
+# ---------------------------
 
+# OpenFold porting (Hopper/Blackwell support)
 RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
     cd /opt/openfold && \
     sed -i 's/arch=compute_37,code=sm_37//g' setup.py && \
@@ -37,13 +46,6 @@ RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
 
 # Install remaining DiffDock dependencies
 COPY requirements.txt .
-
-RUN pip install --no-cache-dir numpy cython setuptools
-
-# We keep CFLAGS active here so that when requirements.txt triggers the ProDy install, it works.
-# Use --no-build-isolation to ensure CFLAGS are respected
-RUN pip install --no-cache-dir --no-build-isolation prody
-
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy your code
