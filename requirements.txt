@@ -1,6 +1,5 @@
 # Git dependencies - these will build from source automatically
 dllogger@git+https://github.com/NVIDIA/dllogger.git
-openfold@git+https://github.com/aqlaboratory/openfold.git@4b41059694619831a7db195b7e0988fc4ff3a307
 
 # Scientific stack (Removed strict pins where they often conflict with ARM64)
 e3nn==0.5.0

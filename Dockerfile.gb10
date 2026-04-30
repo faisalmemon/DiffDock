@@ -6,9 +6,12 @@ ENV APPUSER="appuser"
 RUN useradd -m -u 1000 $APPUSER
 WORKDIR /home/$APPUSER/DiffDock
 
+# --- PRODY FIX ---
+# This undefines the 'I' macro so ProDy can compile its C-extensions on ARM64
+ENV CFLAGS="-UI"
+# -----------------
+
 # Install the "Big Four" Geometric libraries from source
-# Because this image has 'nvcc' and 'torch' ready, this will be 
-# perfectly linked to your hardware.
 RUN pip install --no-cache-dir \
     torch-scatter \
     torch-sparse \
@@ -17,8 +20,30 @@ RUN pip install --no-cache-dir \
     -f https://data.pyg.org/whl/torch-2.3.0+cu121.html || \
     pip install --no-binary :all: torch-cluster torch-scatter torch-sparse torch-spline-conv
 
+# Set the architecture to Hopper (9.0) for the Spark
+ENV TORCH_CUDA_ARCH_LIST="9.0"
+ENV FORCE_CUDA="1"
+
+# Pre-install the build-time requirements
+RUN pip install --no-cache-dir cython biopython setuptools
+
+RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
+    cd /opt/openfold && \
+    sed -i 's/arch=compute_37,code=sm_37//g' setup.py && \
+    sed -i 's/arch=compute_52,code=sm_52//g' setup.py && \
+    sed -i 's/arch=compute_61,code=sm_61//g' setup.py && \
+    sed -i 's/arch=compute_80,code=sm_80/arch=compute_90,code=sm_90/g' setup.py && \
+    pip install .
+
 # Install remaining DiffDock dependencies
 COPY requirements.txt .
+
+RUN pip install --no-cache-dir numpy cython setuptools
+
+# We keep CFLAGS active here so that when requirements.txt triggers the ProDy install, it works.
+# Use --no-build-isolation to ensure CFLAGS are respected
+RUN pip install --no-cache-dir --no-build-isolation prody
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy your code
