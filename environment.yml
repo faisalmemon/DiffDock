@@ -1,12 +1,14 @@
 name: diffdock
 channels:
   - conda-forge
+  - pytorch  # Add the official pytorch channel
   - defaults
 dependencies:
   - python=3.10
   - pip
+  - pytorch=2.4.0  # Force a stable version for CUDA 12.4
+  - pytorch-cuda=12.4  # Explicitly tell it which CUDA toolkit to use
   - pip:
-    - torch
     - e3nn
     - rdkit
     - prody
