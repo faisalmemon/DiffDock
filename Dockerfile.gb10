@@ -27,12 +27,12 @@ RUN pip install --no-cache-dir cython biopython setuptools numpy
 # We download the source, physically patch the offending file, and install.
 # This bypasses the header conflict by undefining 'I' inside the .c file itself.
 RUN pip download prody --no-binary :all: && \
-    tar -xzf ProDy-*.tar.gz && \
-    rm ProDy-*.tar.gz && \
-    cd ProDy-* && \
+    tar -xzf prody-*.tar.gz && \
+    rm prody-*.tar.gz && \
+    cd prody-* && \
     sed -i '1i #undef I\n#undef _Complex_I' prody/dynamics/rtbtools.c && \
     pip install . --no-build-isolation && \
-    cd .. && rm -rf ProDy-*
+    cd .. && rm -rf prody-*
 # ---------------------------
 
 # OpenFold porting (Hopper/Blackwell support)
