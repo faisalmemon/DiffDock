@@ -1,0 +1,27 @@
+FROM nvcr.io/nvidia/pytorch:24.03-py3
+
+# GB10 is Blackwell (Arch 10.0). 
+# We add 9.0a for compatibility if 10.0 is too "new" for this specific torch version.
+ENV TORCH_CUDA_ARCH_LIST="9.0a;10.0"
+ENV FORCE_CUDA="1"
+
+WORKDIR /home/appuser/DiffDock
+
+RUN git clone https://github.com/prody/ProDy.git /tmp/prody && \
+    cd /tmp/prody && \
+    pip install . --no-build-isolation && \
+    rm -rf /tmp/prody
+
+RUN pip install --no-cache-dir cython biopython setuptools numpy
+
+# --- BUILD TOOLS & ENVIRONMENT ---
+
+# Use the NVIDIA NGC Index for these specific libraries. 
+# This is much more likely to find a binary for the 24.03 image.
+RUN pip install --no-cache-dir \
+    torch-scatter \
+    torch-sparse \
+    torch-cluster \
+    torch-spline-conv \
+    -f https://download.pytorch.org/whl/cu121 \
+    --extra-index-url https://pypi.ngc.nvidia.com

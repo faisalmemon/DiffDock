@@ -9,7 +9,6 @@ WORKDIR /home/$APPUSER/DiffDock
 # --- BUILD TOOLS & ENVIRONMENT ---
 ENV TORCH_CUDA_ARCH_LIST="9.0"
 ENV FORCE_CUDA="1"
-ENV CFLAGS="-UI -U_Complex_I"
 
 # Install the "Big Four" Geometric libraries from source
 RUN pip install --no-cache-dir \
@@ -23,16 +22,14 @@ RUN pip install --no-cache-dir \
 # Pre-install build-time requirements (must be done before ProDy surgery)
 RUN pip install --no-cache-dir cython biopython setuptools numpy
 
-# --- PRODY SURGERY BLOCK ---
-RUN pip download prody==2.6.1 --no-binary :all: && \
-    tar -xzf prody-2.6.1.tar.gz && \
-    # We use \b to ensure we only replace the standalone variable 'I' 
-    # and not parts of other words (like 'IF' or 'In').
-    # We also undefine I at the very top of the file as a safety net.
-    find prody-2.6.1 -name "rtbtools.c" -exec sed -i '1i #undef I' {} + && \
-    find prody-2.6.1 -name "rtbtools.c" -exec sed -i 's/\bI\b/Inertia/g' {} + && \
-    pip install ./prody-2.6.1/ --no-build-isolation && \
-    rm -rf prody-*
+# --- PRODY UPSTREAM FIX BLOCK ---
+# We install directly from the main branch where the 'Ii' fix exists. Just "I" is taken as
+# Complex number I.
+# We still use --no-build-isolation to ensure it uses the NumPy/Cython we installed.
+RUN git clone https://github.com/prody/ProDy.git /tmp/prody && \
+    cd /tmp/prody && \
+    pip install . --no-build-isolation && \
+    rm -rf /tmp/prody
 
 # OpenFold porting (Hopper/Blackwell support)
 RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
