@@ -24,16 +24,15 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir cython biopython setuptools numpy
 
 # --- PRODY SURGERY BLOCK ---
-# We download the source, physically patch the offending file, and install.
-# This bypasses the header conflict by undefining 'I' inside the .c file itself.
-RUN pip download prody --no-binary :all: && \
-    tar -xzf prody-*.tar.gz && \
-    rm prody-*.tar.gz && \
-    cd prody-* && \
-    sed -i '1i #undef I\n#undef _Complex_I' prody/dynamics/rtbtools.c && \
-    pip install . --no-build-isolation && \
-    cd .. && rm -rf prody-*
-# ---------------------------
+RUN pip download prody==2.6.1 --no-binary :all: && \
+    tar -xzf prody-2.6.1.tar.gz && \
+    # We use \b to ensure we only replace the standalone variable 'I' 
+    # and not parts of other words (like 'IF' or 'In').
+    # We also undefine I at the very top of the file as a safety net.
+    find prody-2.6.1 -name "rtbtools.c" -exec sed -i '1i #undef I' {} + && \
+    find prody-2.6.1 -name "rtbtools.c" -exec sed -i 's/\bI\b/Inertia/g' {} + && \
+    pip install ./prody-2.6.1/ --no-build-isolation && \
+    rm -rf prody-*
 
 # OpenFold porting (Hopper/Blackwell support)
 RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
