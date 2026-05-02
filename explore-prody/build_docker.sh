@@ -1,8 +1,8 @@
 #!/bin/bash
  
 # Configuration
-USER="faisalm"
-REPO="protein-docking"
+USER="faisalmemon"
+REPO="DiffDock"
 IMAGE_NAME="diffdock-base"
 TAG="gb10-v1"
 FULL_IMAGE_NAME="ghcr.io/$USER/$REPO/$IMAGE_NAME:$TAG"
