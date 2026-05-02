@@ -1,37 +1,13 @@
-# Start with the official NVIDIA-optimized image
-FROM nvcr.io/nvidia/pytorch:24.03-py3
+FROM ghcr.io/faisalmemon/DiffDock/diffdock-base:gb10-v1
 
-# Set up your user
+# 2. Setup the User (The Base image used root, so we switch now)
 ENV APPUSER="appuser"
 RUN useradd -m -u 1000 $APPUSER
 WORKDIR /home/$APPUSER/DiffDock
+ENV PYTHONPATH="/home/$APPUSER/DiffDock:/opt/openfold:${PYTHONPATH}"
 
-# --- BUILD TOOLS & ENVIRONMENT ---
-ENV TORCH_CUDA_ARCH_LIST="9.0"
-ENV FORCE_CUDA="1"
-
-# Install the "Big Four" Geometric libraries from source
-RUN pip install --no-cache-dir \
-    torch-scatter \
-    torch-sparse \
-    torch-cluster \
-    torch-spline-conv \
-    -f https://data.pyg.org/whl/torch-2.3.0+cu121.html || \
-    pip install --no-binary :all: torch-cluster torch-scatter torch-sparse torch-spline-conv
-
-# Pre-install build-time requirements (must be done before ProDy surgery)
-RUN pip install --no-cache-dir cython biopython setuptools numpy
-
-# --- PRODY UPSTREAM FIX BLOCK ---
-# We install directly from the main branch where the 'Ii' fix exists. Just "I" is taken as
-# Complex number I.
-# We still use --no-build-isolation to ensure it uses the NumPy/Cython we installed.
-RUN git clone https://github.com/prody/ProDy.git /tmp/prody && \
-    cd /tmp/prody && \
-    pip install . --no-build-isolation && \
-    rm -rf /tmp/prody
-
-# OpenFold porting (Hopper/Blackwell support)
+# 3. OpenFold - This is a "Heavy" build, so we keep it here 
+# until you're sure it's stable, then you could move it to base too.
 RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
     cd /opt/openfold && \
     sed -i 's/arch=compute_37,code=sm_37//g' setup.py && \
@@ -40,14 +16,19 @@ RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
     sed -i 's/arch=compute_80,code=sm_80/arch=compute_90,code=sm_90/g' setup.py && \
     pip install .
 
-# Install remaining DiffDock dependencies
+# 4. Install Application-specific dependencies
+# Note: Ensure your requirements.txt doesn't conflict with the base's torch/numpy
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy your code
+# 5. Copy your local project code into the container
+# This is the "COPY" you mentioned - it pulls in your DiffDock logic
 COPY --chown=1000:1000 . .
 
-# Precompute
+# 6. Switch to non-root user for security (Good Darwin practice)
+USER $APPUSER
+
+# 7. Final preparation
 RUN python utils/precompute_series.py
 
 CMD ["python", "utils/print_device.py"]

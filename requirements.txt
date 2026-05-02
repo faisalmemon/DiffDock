@@ -1,21 +1,16 @@
-# Git dependencies - these will build from source automatically
+# Git dependencies
 dllogger@git+https://github.com/NVIDIA/dllogger.git
 
-# Scientific stack (Removed strict pins where they often conflict with ARM64)
+# Scientific stack
 e3nn==0.5.0
 fair-esm[esmfold]==2.0.0
 networkx==2.8.4
 pandas==1.5.1
-prody==2.2.0
 pybind11==2.11.1
 rdkit
 scikit-learn
 scipy
 
-# Geometric stack (Remove suffixes like +pt113cu117)
-torch-cluster
+# Geometric Logic (Only the high-level API, not the compiled kernels)
 torch-geometric==2.2.0
-torch-scatter
-torch-sparse
-torch-spline-conv
 torchmetrics==0.11.0
