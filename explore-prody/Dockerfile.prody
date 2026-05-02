@@ -1,8 +1,8 @@
 FROM nvcr.io/nvidia/pytorch:24.03-py3
 
 # GB10 is Blackwell (Arch 10.0). 
-# We add 9.0a for compatibility if 10.0 is too "new" for this specific torch version.
-ENV TORCH_CUDA_ARCH_LIST="9.0a;10.0"
+# 10.0 is too new - trying 9.0 Hopper
+ENV TORCH_CUDA_ARCH_LIST="9.0"
 ENV FORCE_CUDA="1"
 
 WORKDIR /home/appuser/DiffDock
