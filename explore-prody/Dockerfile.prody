@@ -27,7 +27,8 @@ RUN pip install --no-cache-dir \
     --extra-index-url https://pypi.ngc.nvidia.com
 
 # Install Tkinter so ProDy's drugui doesn't crash
-RUN apt-get update && apt-get install -y \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-tk \
     tcl-dev \
     tk-dev \
