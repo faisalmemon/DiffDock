@@ -19,6 +19,6 @@ RUN pip install --no-cache-dir --no-binary :all: torch-cluster
 
 # Add your test script
 WORKDIR /test
-COPY pre_flight_checks/test_geometric.py .
+COPY test_geometric.py .
 
 CMD ["python", "test_geometric.py"]
