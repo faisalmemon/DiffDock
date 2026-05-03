@@ -26,6 +26,17 @@ RUN pip install --no-cache-dir \
     -f https://download.pytorch.org/whl/cu121 \
     --extra-index-url https://pypi.ngc.nvidia.com
 
+RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
+    cd /opt/openfold && \
+    sed -i 's/arch=compute_37,code=sm_37//g' setup.py && \
+    sed -i 's/arch=compute_52,code=sm_52//g' setup.py && \
+    sed -i 's/arch=compute_61,code=sm_61//g' setup.py && \
+    sed -i 's/arch=compute_80,code=sm_80/arch=compute_90,code=sm_90/g' setup.py && \
+    pip install .
+
+ENV PYTHONPATH="/opt/openfold:${PYTHONPATH}"
+ENV NVIDIA_DISABLE_REQUIRE=true
+
 # Install Tkinter so ProDy's drugui doesn't crash
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
