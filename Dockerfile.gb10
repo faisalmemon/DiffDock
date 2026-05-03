@@ -19,10 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=1000:1000 . .
 
+RUN mkdir -p /home/$APPUSER/DiffDock/results \
+             /home/$APPUSER/.cache/torch/hub/checkpoints
+
 RUN python utils/precompute_series.py
 
-RUN chown -R 1000:1000 /home/$APPUSER/DiffDock
+RUN chown -R 1000:1000 /home/$APPUSER/DiffDock /home/$APPUSER/.cache
 
 USER $APPUSER
+CMD ["python", "inference.py"]
 
-CMD ["python", "utils/print_device.py"]
