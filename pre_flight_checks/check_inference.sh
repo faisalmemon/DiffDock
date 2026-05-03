@@ -12,6 +12,8 @@ docker run --rm --gpus all \
   --ulimit stack=67108864 \
   -e NVIDIA_DISABLE_REQUIRE=true \
   -e CUDA_MODULE_LOADING=LAZY \
+  -e CUDA_FORWARD_COMPAT_RELEASE=580 \
+  -e TORCH_CUDA_ARCH_LIST="9.0" \
   -v $(pwd)/.cache:/home/appuser/.cache \
   -v $(pwd)/results:/home/appuser/DiffDock/results \
   diffdock:gb10 \
