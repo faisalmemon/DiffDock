@@ -17,10 +17,6 @@ FROM ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2 AS base
 # ----- LAYER 2 : MOLECULAR BIOLOGY -----
 FROM base AS biology
 
-
-
-
-
 # The base image already has a user with UID 1000 (ubuntu)
 # We use the existing user rather than creating appuser
 ENV APPUSER="ubuntu"
@@ -49,7 +45,7 @@ RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
     sed -i 's/arch=compute_80,code=sm_80/arch=compute_90,code=sm_90/g' setup.py && \
     pip install .
 
-# 4. Tkinter for ProDy’s drugui (avoids crash)
+# 4. Tkinter for ProDy's drugui (avoids crash)
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-tk \
@@ -71,14 +67,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy full application code
 COPY --chown=$APPUSER:$APPUSER . .
 
-# Create runtime directories and precompute series
-RUN mkdir -p /home/$APPUSER/DiffDock/results \
-             /home/$APPUSER/.cache/torch/hub/checkpoints && \
-    python utils/precompute_series.py && \
-    chown -R $APPUSER:$APPUSER /home/$APPUSER/DiffDock
+# Create runtime directories (cache is mounted at runtime, results are mounted)
+RUN mkdir -p /home/$APPUSER/DiffDock/results
 
-# Switch to non-root user (already exists)
+# Precompute series at runtime via entrypoint so cache lives on host volume
+# Switch to non-root user
 USER $APPUSER
 
-# Default command
+# Entrypoint: run precompute if needed, then launch inference
+COPY --chown=$APPUSER:$APPUSER entrypoint.sh /home/$APPUSER/DiffDock/entrypoint.sh
+RUN chmod +x /home/$APPUSER/DiffDock/entrypoint.sh
+ENTRYPOINT ["/home/$APPUSER/DiffDock/entrypoint.sh"]
+
+# Default command (passed to entrypoint)
 CMD ["python", "inference.py"]
+
