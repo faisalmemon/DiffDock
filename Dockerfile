@@ -3,16 +3,12 @@
 #
 #   Layer 1 – Hardware Geometric Base (gb10‑v2)
 #     NEVER changes. Published as ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2.
-#     Contains PyTorch 2.6.0 + torch_scatter + torch_sparse + torch_cluster.
-#     Build time: 30+ min, but fully cached.
 #
 #   Layer 2 – Molecular Biology Layer
 #     Changes occasionally. OpenFold, ProDy, biopython, tkinter.
-#     Build time: ~3–5 min.
 #
 #   Layer 3 – Diffdock Application Layer
 #     Changes constantly. Application code, requirements, precompute_series.
-#     Build time: seconds.
 # =============================================================================
 
 # ----- LAYER 1 : HARDWARE GEOMETRIC BASE -----
@@ -21,17 +17,17 @@ FROM ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2 AS base
 # ----- LAYER 2 : MOLECULAR BIOLOGY -----
 FROM base AS biology
 
-# Create the app user and set up workspace
+# The base image already has a user with UID 1000 (appuser)
+# We do NOT re-create it.  Use the existing user.
 ENV APPUSER="appuser"
-RUN useradd -m -u 1000 $APPUSER
 WORKDIR /home/$APPUSER/DiffDock
 
-# Environment: PYTHONPATH includes local code and OpenFold
-ENV PYTHONPATH="/home/$APPUSER/DiffDock:/opt/openfold:${PYTHONPATH}"
+# PYTHONPATH: local code first, then OpenFold
+ENV PYTHONPATH="/home/$APPUSER/DiffDock:/opt/openfold"
 ENV NVIDIA_DISABLE_REQUIRE=true
 
 # Install packages that change occasionally
-# 1. ProDy – built from source to ensure Blackwell compatibility
+# 1. ProDy – built from source for Blackwell compatibility
 RUN git clone https://github.com/prody/ProDy.git /tmp/prody && \
     cd /tmp/prody && \
     pip install . --no-build-isolation && \
@@ -61,20 +57,20 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 FROM biology AS app
 
 # Copy application requirements and install (changes constantly)
-COPY --chown=1000:1000 requirements.txt .
+COPY --chown=$APPUSER:$APPUSER requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy full application code
-COPY --chown=1000:1000 . .
+COPY --chown=$APPUSER:$APPUSER . .
 
 # Create runtime directories and precompute series
 RUN mkdir -p /home/$APPUSER/DiffDock/results \
              /home/$APPUSER/.cache/torch/hub/checkpoints && \
     python utils/precompute_series.py && \
-    chown -R 1000:1000 /home/$APPUSER/DiffDock /home/$APPUSER/.cache
+    chown -R $APPUSER:$APPUSER /home/$APPUSER/DiffDock /home/$APPUSER/.cache
 
-# Switch to non‑root user
+# Switch to non‑root user (already exists)
 USER $APPUSER
+
 # Default command
 CMD ["python", "inference.py"]
-
