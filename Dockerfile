@@ -58,6 +58,10 @@ FROM biology AS app
 
 # Copy application requirements and install (changes constantly)
 COPY --chown=$APPUSER:$APPUSER requirements.txt .
+
+# Ensure setuptools is installed (required by pandas==1.5.1 for pkg_resources)
+RUN pip install --no-cache-dir --upgrade pip setuptools
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy full application code

@@ -5,7 +5,7 @@ dllogger@git+https://github.com/NVIDIA/dllogger.git
 e3nn==0.5.0
 fair-esm[esmfold]==2.0.0
 networkx==2.8.4
-pandas==1.5.1
+pandas>=2.0.0
 pybind11==2.11.1
 rdkit
 scikit-learn
@@ -14,3 +14,4 @@ scipy
 # Geometric Logic (Only the high-level API, not the compiled kernels)
 torch-geometric==2.2.0
 torchmetrics==0.11.0
+
