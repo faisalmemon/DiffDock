@@ -17,8 +17,9 @@ FROM ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2 AS base
 # ----- LAYER 2 : MOLECULAR BIOLOGY -----
 FROM base AS biology
 
-# The base image already has a user with UID 1000 (appuser)
-# We do NOT re-create it.  Use the existing user.
+# Create the appuser (UID 1000) since the base image doesn't include it
+RUN useradd -m -u 1000 -s /bin/bash appuser && \
+    passwd -d appuser
 ENV APPUSER="appuser"
 WORKDIR /home/$APPUSER/DiffDock
 
@@ -73,7 +74,7 @@ RUN mkdir -p /home/$APPUSER/DiffDock/results \
     python utils/precompute_series.py && \
     chown -R $APPUSER:$APPUSER /home/$APPUSER/DiffDock /home/$APPUSER/.cache
 
-# Switch to non‑root user (already exists)
+# Switch to non-root user (already exists)
 USER $APPUSER
 
 # Default command
