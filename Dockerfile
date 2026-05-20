@@ -17,10 +17,13 @@ FROM ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2 AS base
 # ----- LAYER 2 : MOLECULAR BIOLOGY -----
 FROM base AS biology
 
-# Create the appuser (UID 1000) since the base image doesn't include it
-RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    passwd -d appuser
-ENV APPUSER="appuser"
+
+
+
+
+# The base image already has a user with UID 1000 (ubuntu)
+# We use the existing user rather than creating appuser
+ENV APPUSER="ubuntu"
 WORKDIR /home/$APPUSER/DiffDock
 
 # PYTHONPATH: local code first, then OpenFold
@@ -72,7 +75,7 @@ COPY --chown=$APPUSER:$APPUSER . .
 RUN mkdir -p /home/$APPUSER/DiffDock/results \
              /home/$APPUSER/.cache/torch/hub/checkpoints && \
     python utils/precompute_series.py && \
-    chown -R $APPUSER:$APPUSER /home/$APPUSER/DiffDock /home/$APPUSER/.cache
+    chown -R $APPUSER:$APPUSER /home/$APPUSER/DiffDock
 
 # Switch to non-root user (already exists)
 USER $APPUSER
