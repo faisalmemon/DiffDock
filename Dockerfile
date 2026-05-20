@@ -1,61 +1,80 @@
-# Stage 1: Build Environment Setup
-FROM nvidia/cuda:11.7.1-devel-ubuntu22.04 AS builder
+# =============================================================================
+# DIFFDOCK HIERARCHICAL BUILD (Three‑Layer Dockerfile)
+#
+#   Layer 1 – Hardware Geometric Base (gb10‑v2)
+#     NEVER changes. Published as ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2.
+#     Contains PyTorch 2.6.0 + torch_scatter + torch_sparse + torch_cluster.
+#     Build time: 30+ min, but fully cached.
+#
+#   Layer 2 – Molecular Biology Layer
+#     Changes occasionally. OpenFold, ProDy, biopython, tkinter.
+#     Build time: ~3–5 min.
+#
+#   Layer 3 – Diffdock Application Layer
+#     Changes constantly. Application code, requirements, precompute_series.
+#     Build time: seconds.
+# =============================================================================
 
-RUN apt-get update -y && apt-get install -y gcc wget curl git tar bzip2 unzip && rm -rf /var/lib/apt/lists/*
+# ----- LAYER 1 : HARDWARE GEOMETRIC BASE -----
+FROM ghcr.io/faisalmemon/diffdock/diffdock-base:gb10-v2 AS base
 
-# Create a user
+# ----- LAYER 2 : MOLECULAR BIOLOGY -----
+FROM base AS biology
+
+# Create the app user and set up workspace
 ENV APPUSER="appuser"
-ENV HOME=/home/$APPUSER
 RUN useradd -m -u 1000 $APPUSER
+WORKDIR /home/$APPUSER/DiffDock
+
+# Environment: PYTHONPATH includes local code and OpenFold
+ENV PYTHONPATH="/home/$APPUSER/DiffDock:/opt/openfold:${PYTHONPATH}"
+ENV NVIDIA_DISABLE_REQUIRE=true
+
+# Install packages that change occasionally
+# 1. ProDy – built from source to ensure Blackwell compatibility
+RUN git clone https://github.com/prody/ProDy.git /tmp/prody && \
+    cd /tmp/prody && \
+    pip install . --no-build-isolation && \
+    rm -rf /tmp/prody
+
+# 2. Core Python biology tools
+RUN pip install --no-cache-dir cython biopython setuptools numpy
+
+# 3. OpenFold – built from source with Blackwell arch patches
+RUN git clone https://github.com/aqlaboratory/openfold.git /opt/openfold && \
+    cd /opt/openfold && \
+    sed -i 's/arch=compute_37,code=sm_37//g' setup.py && \
+    sed -i 's/arch=compute_52,code=sm_52//g' setup.py && \
+    sed -i 's/arch=compute_61,code=sm_61//g' setup.py && \
+    sed -i 's/arch=compute_80,code=sm_80/arch=compute_90,code=sm_90/g' setup.py && \
+    pip install .
+
+# 4. Tkinter for ProDy’s drugui (avoids crash)
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-tk \
+    tcl-dev \
+    tk-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ----- LAYER 3 : DIFFDOCK APPLICATION -----
+FROM biology AS app
+
+# Copy application requirements and install (changes constantly)
+COPY --chown=1000:1000 requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy full application code
+COPY --chown=1000:1000 . .
+
+# Create runtime directories and precompute series
+RUN mkdir -p /home/$APPUSER/DiffDock/results \
+             /home/$APPUSER/.cache/torch/hub/checkpoints && \
+    python utils/precompute_series.py && \
+    chown -R 1000:1000 /home/$APPUSER/DiffDock /home/$APPUSER/.cache
+
+# Switch to non‑root user
 USER $APPUSER
-WORKDIR $HOME
-
-ENV ENV_NAME="diffdock"
-ENV DIR_NAME="DiffDock"
-
-# Install micromamba
-RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xj bin/micromamba
-ENV MAMBA_ROOT_PREFIX=$HOME/micromamba
-ENV PATH=$HOME/bin:$HOME/.local/bin:$PATH
-
-# Copy and create Conda environment
-ENV ENV_FILE_NAME=environment.yml
-COPY --chown=$APPUSER:$APPUSER ./$ENV_FILE_NAME .
-RUN ~/bin/micromamba env create --file $ENV_FILE_NAME && ~/bin/micromamba clean -afy --quiet
-
-# Copy application code
-COPY --chown=$APPUSER:$APPUSER . $HOME/$DIR_NAME
-
-
-# Stage 2: Runtime Environment
-FROM nvidia/cuda:11.7.1-runtime-ubuntu22.04
-
-# Create user and setup environment
-ENV APPUSER="appuser"
-ENV HOME=/home/$APPUSER
-RUN useradd -m -u 1000 $APPUSER
-USER $APPUSER
-WORKDIR $HOME
-
-ENV ENV_NAME="diffdock"
-ENV DIR_NAME="DiffDock"
-
-# Copy the Conda environment and application code from the builder stage
-COPY --from=builder --chown=$APPUSER:$APPUSER $HOME/micromamba $HOME/micromamba
-COPY --from=builder --chown=$APPUSER:$APPUSER $HOME/bin $HOME/bin
-COPY --from=builder --chown=$APPUSER:$APPUSER $HOME/$DIR_NAME $HOME/$DIR_NAME
-WORKDIR $HOME/$DIR_NAME
-
-# Set the environment variables
-ENV MAMBA_ROOT_PREFIX=$HOME/micromamba
-ENV PATH=$HOME/bin:$HOME/.local/bin:$PATH
-RUN micromamba shell init -s bash --root-prefix $MAMBA_ROOT_PREFIX
-
-# Precompute series for SO(2) and SO(3) groups
-RUN micromamba run -n ${ENV_NAME} python utils/precompute_series.py
-
-# Expose ports for streamlit and gradio
-EXPOSE 7860 8501
-
 # Default command
-CMD ["sh", "-c", "micromamba run -n ${ENV_NAME} python utils/print_device.py"]
+CMD ["python", "inference.py"]
+
