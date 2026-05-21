@@ -126,3 +126,20 @@ local_config_inference2.yml
 *.zip
 
 .idea/
+
+# Ignore heavy model weights and caches
+.cache/
+cache/
+*.npy
+*.pt
+*.bin
+
+# Ignore runtime output data
+results/
+data/
+datasets/
+
+# Ignore local git and sub-build folders
+.git/
+docker_fix_geometric/
+docker_diffdock_base/

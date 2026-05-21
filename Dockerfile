@@ -68,16 +68,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=$APPUSER:$APPUSER . .
 
 # Create runtime directories (cache is mounted at runtime, results are mounted)
-RUN mkdir -p /home/$APPUSER/DiffDock/results
+RUN mkdir -p /home/$APPUSER/DiffDock/results && \
+    chown -R $APPUSER:$APPUSER /home/$APPUSER/DiffDock
 
 # Precompute series at runtime via entrypoint so cache lives on host volume
 # Switch to non-root user
 USER $APPUSER
 
 # Entrypoint: run precompute if needed, then launch inference
-COPY --chown=$APPUSER:$APPUSER entrypoint.sh /home/$APPUSER/DiffDock/entrypoint.sh
-RUN chmod +x /home/$APPUSER/DiffDock/entrypoint.sh
-ENTRYPOINT ["/home/$APPUSER/DiffDock/entrypoint.sh"]
+
+
+
+COPY --chown=$APPUSER:$APPUSER entrypoint.sh /home/ubuntu/DiffDock/entrypoint.sh
+RUN chmod +x /home/ubuntu/DiffDock/entrypoint.sh
+ENTRYPOINT ["/home/ubuntu/DiffDock/entrypoint.sh"]
 
 # Default command (passed to entrypoint)
 CMD ["python", "inference.py"]
