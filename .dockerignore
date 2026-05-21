@@ -137,7 +137,8 @@ cache/
 # Ignore runtime output data
 results/
 data/
-datasets/
+datasets/**/*
+!datasets/**/*.py
 
 # Ignore local git and sub-build folders
 .git/
